@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { crawlStandings } from "@/lib/crawl";
+import type { Team } from "@/types";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export async function GET() {
     return NextResponse.json({
       id: snapshot.id,
       crawledAt: snapshot.crawledAt,
-      teams: JSON.parse(snapshot.teamsJson),
+      teams: JSON.parse(snapshot.teamsJson) as Team[],
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
