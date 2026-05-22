@@ -1,24 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { crawlStandings } from "@/lib/crawl";
-import type { Team } from "@/types";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
 
-// 현재 순위를 크롤링해 DB에 스냅샷으로 저장
+// 현재 순위를 크롤링해 DB에 날짜 기준 upsert
 export async function POST() {
   try {
     const teams = await crawlStandings();
+    const date = dayjs().format("YYYY-MM-DD");
 
-    const snapshot = await prisma.snapshot.create({
-      data: {
-        teamsJson: JSON.stringify(teams),
-        crawledAt: dayjs().toDate(),
-      },
+    const snapshot = await prisma.snapshot.upsert({
+      where: { date },
+      create: { date, data: teams },
+      update: { data: teams },
     });
 
-    return NextResponse.json({ id: snapshot.id, crawledAt: snapshot.crawledAt });
+    return NextResponse.json({ id: snapshot.id, date: snapshot.date, createdAt: snapshot.createdAt });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -29,7 +28,7 @@ export async function POST() {
 export async function GET() {
   try {
     const snapshot = await prisma.snapshot.findFirst({
-      orderBy: { crawledAt: "desc" },
+      orderBy: { date: "desc" },
     });
 
     if (!snapshot) {
@@ -38,8 +37,9 @@ export async function GET() {
 
     return NextResponse.json({
       id: snapshot.id,
-      crawledAt: snapshot.crawledAt,
-      teams: JSON.parse(snapshot.teamsJson) as Team[],
+      date: snapshot.date,
+      createdAt: snapshot.createdAt,
+      teams: snapshot.data,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

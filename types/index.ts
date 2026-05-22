@@ -23,7 +23,8 @@ export interface Team {
 
 export interface Snapshot {
   id: string;
-  crawledAt: string; // ISO 8601
+  date: string; // YYYY-MM-DD
+  createdAt: string; // ISO 8601
   teams: Team[];
 }
 
