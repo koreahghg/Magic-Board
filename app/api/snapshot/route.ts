@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { crawlStandings } from "@/lib/crawl";
+import type { Team } from "@/types";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +15,8 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   try {
     const teams = await crawlStandings();
-    const date = dayjs().format("YYYY-MM-DD");
+    if (teams.length === 0) throw new Error("크롤링된 데이터가 없습니다.");
+    const date = dayjs().tz("Asia/Seoul").format("YYYY-MM-DD");
 
     const snapshot = await prisma.snapshot.upsert({
       where: { date },
@@ -17,7 +24,7 @@ export async function POST() {
       update: { data: teams },
     });
 
-    return NextResponse.json({ id: snapshot.id, date: snapshot.date, createdAt: snapshot.createdAt });
+    return NextResponse.json({ id: snapshot.id, date: snapshot.date, createdAt: snapshot.createdAt.toISOString() });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -38,8 +45,8 @@ export async function GET() {
     return NextResponse.json({
       id: snapshot.id,
       date: snapshot.date,
-      createdAt: snapshot.createdAt,
-      teams: snapshot.data,
+      createdAt: snapshot.createdAt.toISOString(),
+      teams: snapshot.data as unknown as Team[],
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

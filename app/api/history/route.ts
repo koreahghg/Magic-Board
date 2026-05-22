@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { Team } from "@/types";
 
 type SnapshotRow = Awaited<ReturnType<typeof prisma.snapshot.findMany>>[number];
 
@@ -15,8 +16,8 @@ export async function GET() {
     const result = snapshots.map((s: SnapshotRow) => ({
       id: s.id,
       date: s.date,
-      createdAt: s.createdAt,
-      teams: s.data,
+      createdAt: s.createdAt.toISOString(),
+      teams: s.data as unknown as Team[],
     }));
 
     return NextResponse.json(result);
