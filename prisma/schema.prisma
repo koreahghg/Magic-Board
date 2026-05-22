@@ -3,12 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Snapshot {
   id        String   @id @default(cuid())
-  crawledAt DateTime @default(now())
-  teamsJson String
+  date      String   @unique
+  data      Json
+  createdAt DateTime @default(now())
 }

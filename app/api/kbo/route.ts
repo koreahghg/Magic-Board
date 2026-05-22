@@ -14,7 +14,8 @@ export async function GET() {
     const body: StandingsResponse = {
       snapshot: {
         id: crypto.randomUUID(),
-        crawledAt: dayjs().toISOString(),
+        date: dayjs().format("YYYY-MM-DD"),
+        createdAt: dayjs().toISOString(),
         teams,
       },
       magicNumbers,
