@@ -18,6 +18,7 @@ export interface Team {
   losses: number;
   draws: number;
   winRate: number;
+  remainingGames: number;
   gamesBehind: number;
 }
 
