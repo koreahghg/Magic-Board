@@ -9,16 +9,15 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const teams = await crawlStandings();
-    const magicNumbers = calcMagicNumbers(teams);
+    const teamsWithNumbers = calcMagicNumbers(teams);
 
     const body: StandingsResponse = {
       snapshot: {
         id: crypto.randomUUID(),
         date: dayjs().format("YYYY-MM-DD"),
         createdAt: dayjs().toISOString(),
-        teams,
+        teams: teamsWithNumbers,
       },
-      magicNumbers,
     };
 
     return NextResponse.json(body);

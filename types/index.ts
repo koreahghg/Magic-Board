@@ -22,20 +22,18 @@ export interface Team {
   gamesBehind: number;
 }
 
+export type TeamWithNumbers = Team & {
+  magicNumber: number | null;
+  tragicNumber: number | null;
+};
+
 export interface Snapshot {
   id: string;
   date: string; // YYYY-MM-DD
   createdAt: string; // ISO 8601
-  teams: Team[];
-}
-
-export interface MagicNumber {
-  teamName: TeamName;
-  target: TeamName;
-  magicNumber: number | null; // null = 이미 확정 or 계산 불가
+  teams: TeamWithNumbers[];
 }
 
 export interface StandingsResponse {
   snapshot: Snapshot;
-  magicNumbers: MagicNumber[];
 }
