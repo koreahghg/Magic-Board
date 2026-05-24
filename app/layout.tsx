@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,12 +29,14 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground flex flex-col">
-        <header className="border-b px-6 py-4">
-          <h1 className="text-xl font-bold tracking-tight">
-            ⚾ KBO 매직넘버 트래커
-          </h1>
-        </header>
-        <main className="flex-1 container mx-auto px-4 py-6">{children}</main>
+        <Providers>
+          <header className="border-b px-6 py-4">
+            <h1 className="text-xl font-bold tracking-tight">
+              ⚾ KBO 매직넘버 트래커
+            </h1>
+          </header>
+          <main className="flex-1 container mx-auto px-4 py-6">{children}</main>
+        </Providers>
       </body>
     </html>
   );
