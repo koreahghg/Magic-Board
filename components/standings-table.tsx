@@ -20,7 +20,7 @@ import { calcMagicBoard } from "@/lib/calc";
 
 function todayKST(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(
-    new Date()
+    new Date(),
   );
 }
 
@@ -110,11 +110,16 @@ function gameStatusInfo(status: Game["status"]): {
   cls: string;
 } {
   switch (status) {
-    case "final":     return { label: "종료",     cls: "text-slate-400" };
-    case "live":      return { label: "진행중",   cls: "text-amber-400 font-semibold" };
-    case "cancelled": return { label: "취소",     cls: "text-slate-500" };
-    case "postponed": return { label: "우천순연", cls: "text-slate-500" };
-    default:          return { label: "예정",     cls: "text-slate-300" };
+    case "final":
+      return { label: "종료", cls: "text-slate-400" };
+    case "live":
+      return { label: "진행중", cls: "text-amber-400 font-semibold" };
+    case "cancelled":
+      return { label: "취소", cls: "text-slate-500" };
+    case "postponed":
+      return { label: "우천순연", cls: "text-slate-500" };
+    default:
+      return { label: "예정", cls: "text-slate-300" };
   }
 }
 
@@ -278,8 +283,8 @@ function FormDots({ form }: { form: FormEntry[] }) {
             entry === "W"
               ? "bg-emerald-500"
               : entry === "L"
-              ? "bg-rose-500"
-              : "bg-amber-400"
+                ? "bg-rose-500"
+                : "bg-amber-400"
           }`}
         />
       ))}
@@ -296,28 +301,42 @@ function calcStreak(form: FormEntry[]): string {
     count++;
   }
   if (count < 2) return "";
-  return first === "W" ? `${count}연승` : first === "L" ? `${count}연패` : `${count}연무`;
+  return first === "W"
+    ? `${count}연승`
+    : first === "L"
+      ? `${count}연패`
+      : `${count}연무`;
 }
 
 // ─── Magic Board cell helpers ──────────────────────────────────────────────
 
 function cellBg(type: CellState["type"]): string {
   switch (type) {
-    case "confirmed":  return "bg-sky-950";
-    case "magic":      return "bg-emerald-950";
-    case "contest":    return "bg-amber-950";
-    case "tragic":     return "bg-rose-950";
-    case "impossible": return "bg-slate-950";
+    case "confirmed":
+      return "bg-sky-950";
+    case "magic":
+      return "bg-emerald-950";
+    case "contest":
+      return "bg-amber-950";
+    case "tragic":
+      return "bg-rose-950";
+    case "impossible":
+      return "bg-slate-950";
   }
 }
 
 function cellText(type: CellState["type"]): string {
   switch (type) {
-    case "confirmed":  return "text-sky-300";
-    case "magic":      return "text-emerald-400 font-bold";
-    case "contest":    return "text-amber-300 font-bold";
-    case "tragic":     return "text-rose-400 font-bold";
-    case "impossible": return "text-slate-700";
+    case "confirmed":
+      return "text-sky-300";
+    case "magic":
+      return "text-emerald-400 font-bold";
+    case "contest":
+      return "text-amber-300 font-bold";
+    case "tragic":
+      return "text-rose-400 font-bold";
+    case "impossible":
+      return "text-slate-700";
   }
 }
 
@@ -337,7 +356,10 @@ function cellLabel(state: CellState): string {
 function MagicBoardTable({ teams }: { teams: TeamWithNumbers[] }) {
   const { teams: sorted, cells } = calcMagicBoard(teams);
   const numPositions = sorted.length - 1;
-  const displayK = Array.from({ length: numPositions }, (_, i) => numPositions - i);
+  const displayK = Array.from(
+    { length: numPositions },
+    (_, i) => numPositions - i,
+  );
 
   return (
     <div className="space-y-4">
@@ -363,24 +385,32 @@ function MagicBoardTable({ teams }: { teams: TeamWithNumbers[] }) {
           <tbody>
             {sorted.map((team, teamIdx) => {
               const rowCells = cells[teamIdx];
-              const display = displayK.map((k) => ({ k, state: rowCells[k - 1] }));
+              const display = displayK.map((k) => ({
+                k,
+                state: rowCells[k - 1],
+              }));
 
               let confirmedCount = 0;
               while (
                 confirmedCount < display.length &&
                 display[confirmedCount].state.type === "confirmed"
-              ) confirmedCount++;
+              )
+                confirmedCount++;
 
               let impossibleCount = 0;
               const remaining = display.length - confirmedCount;
               while (
                 impossibleCount < remaining &&
-                display[display.length - 1 - impossibleCount].state.type === "impossible"
-              ) impossibleCount++;
+                display[display.length - 1 - impossibleCount].state.type ===
+                  "impossible"
+              )
+                impossibleCount++;
 
               const middle = display.slice(
                 confirmedCount,
-                impossibleCount > 0 ? display.length - impossibleCount : undefined
+                impossibleCount > 0
+                  ? display.length - impossibleCount
+                  : undefined,
               );
 
               const confirmedLabel =
@@ -451,14 +481,29 @@ function MagicBoardTable({ teams }: { teams: TeamWithNumbers[] }) {
       <div className="flex items-center gap-5 flex-wrap text-xs">
         {(
           [
-            ["bg-sky-950 border border-sky-800/40",       "text-sky-300",     "확보"],
-            ["bg-emerald-950 border border-emerald-800/40", "text-emerald-400", "매직넘버"],
-            ["bg-amber-950 border border-amber-800/40",   "text-amber-300",   "경합"],
-            ["bg-rose-950 border border-rose-800/40",     "text-rose-400",    "트래직넘버"],
-            ["bg-slate-950 border border-slate-700",      "text-slate-600",   "불가"],
+            ["bg-sky-950 border border-sky-800/40", "text-sky-300", "확보"],
+            [
+              "bg-emerald-950 border border-emerald-800/40",
+              "text-emerald-400",
+              "매직넘버",
+            ],
+            [
+              "bg-amber-950 border border-amber-800/40",
+              "text-amber-300",
+              "경합",
+            ],
+            [
+              "bg-rose-950 border border-rose-800/40",
+              "text-rose-400",
+              "트래직넘버",
+            ],
+            ["bg-slate-950 border border-slate-700", "text-slate-600", "불가"],
           ] as [string, string, string][]
         ).map(([bg, text, label]) => (
-          <span key={label} className="flex items-center gap-1.5 text-slate-500">
+          <span
+            key={label}
+            className="flex items-center gap-1.5 text-slate-500"
+          >
             <span className={`inline-block w-3 h-3 rounded-sm ${bg}`} />
             <span className={text}>{label}</span>
           </span>
@@ -486,17 +531,37 @@ function EnhancedStandings({
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="bg-slate-900/90 border-b border-slate-800">
-            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold w-8">순</th>
-            <th className="px-4 py-2.5 text-slate-500 text-xs font-semibold text-left">팀명</th>
-            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">경기</th>
-            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">승</th>
-            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">패</th>
-            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold hidden sm:table-cell">무</th>
-            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">승률</th>
-            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">게임차</th>
-            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold hidden md:table-cell">잔여</th>
+            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold w-8">
+              순
+            </th>
+            <th className="px-4 py-2.5 text-slate-500 text-xs font-semibold text-left">
+              팀명
+            </th>
+            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">
+              경기
+            </th>
+            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">
+              승
+            </th>
+            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">
+              패
+            </th>
+            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold hidden sm:table-cell">
+              무
+            </th>
+            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">
+              승률
+            </th>
+            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">
+              게임차
+            </th>
+            <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold hidden md:table-cell">
+              잔여
+            </th>
             {hasForm && (
-              <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">최근5</th>
+              <th className="text-center px-3 py-2.5 text-slate-500 text-xs font-semibold">
+                최근5
+              </th>
             )}
           </tr>
         </thead>
@@ -551,8 +616,8 @@ function EnhancedStandings({
                             streak.includes("승")
                               ? "text-emerald-400"
                               : streak.includes("패")
-                              ? "text-rose-400"
-                              : "text-amber-400"
+                                ? "text-rose-400"
+                                : "text-amber-400"
                           }`}
                         >
                           {streak}
@@ -696,7 +761,7 @@ export function StandingsTable() {
 
           {/* 매직 보드 */}
           <section className="space-y-3">
-            <h2 className="text-xl font-bold tracking-tight">매직 보드</h2>
+            <h2 className="text-xl font-bold tracking-tight">매직 넘버</h2>
             <MagicBoardTable teams={data.teams} />
           </section>
 
@@ -719,7 +784,10 @@ function BoardSkeleton() {
       <Skeleton className="h-7 w-32" />
       <div className="rounded-xl overflow-hidden border border-slate-800">
         {Array.from({ length: 11 }).map((_, i) => (
-          <div key={i} className="flex border-b border-slate-800/50 last:border-0">
+          <div
+            key={i}
+            className="flex border-b border-slate-800/50 last:border-0"
+          >
             {Array.from({ length: 10 }).map((_, j) => (
               <div key={j} className="flex-1 p-3">
                 <Skeleton className="h-4 w-full" />
