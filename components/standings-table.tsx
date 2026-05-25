@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, startTransition, Fragment } from "react";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -96,6 +96,7 @@ function TeamLogo({ name, size = 24 }: { name: string; size?: number }) {
       width={size}
       height={size}
       className="object-contain shrink-0"
+      style={{ width: size, height: size }}
       onError={(e) => {
         (e.target as HTMLImageElement).style.display = "none";
       }}
@@ -667,7 +668,7 @@ export function StandingsTable() {
   const [date, setDate] = useState("");
 
   useEffect(() => {
-    setDate(todayKST());
+    startTransition(() => setDate(todayKST()));
   }, []);
 
   const today = todayKST();
