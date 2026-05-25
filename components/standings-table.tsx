@@ -75,6 +75,30 @@ async function fetchForm(): Promise<FormResponse> {
   return res.json();
 }
 
+// ─── Favorite team ─────────────────────────────────────────────────────────
+
+const DEFAULT_FAV = "KIA";
+
+function useFavoriteTeam(): [string | null, (name: string) => void] {
+  const [fav, setFavState] = useState<string | null>(null);
+
+  useEffect(() => {
+    startTransition(() => {
+      const stored = localStorage.getItem("kbo-fav-team");
+      setFavState(stored ?? DEFAULT_FAV);
+    });
+  }, []);
+
+  function toggle(name: string) {
+    const next = fav === name ? null : name;
+    setFavState(next);
+    if (next) localStorage.setItem("kbo-fav-team", next);
+    else localStorage.removeItem("kbo-fav-team");
+  }
+
+  return [fav, toggle];
+}
+
 // ─── Format helpers ────────────────────────────────────────────────────────
 
 function fmtWinRate(r: number): string {
@@ -124,20 +148,31 @@ function gameStatusInfo(status: Game["status"]): {
   }
 }
 
-function GameCard({ game }: { game: Game }) {
+function GameCard({
+  game,
+  favTeam,
+}: {
+  game: Game;
+  favTeam?: string | null;
+}) {
   const { label, cls } = gameStatusInfo(game.status);
   const isLive = game.status === "live";
   const isFinal = game.status === "final";
   const hasScore = game.homeScore !== null && game.awayScore !== null;
   const awayWin = hasScore && game.awayScore! > game.homeScore!;
   const homeWin = hasScore && game.homeScore! > game.awayScore!;
+  const isFavGame =
+    !!favTeam &&
+    (game.homeTeam === favTeam || game.awayTeam === favTeam);
 
   return (
     <div
       className={`w-52 shrink-0 rounded-xl border p-4 space-y-3 transition-all ${
         isLive
           ? "border-amber-500/40 bg-amber-950/20 shadow-lg shadow-amber-900/10"
-          : "border-slate-800 bg-slate-900/60"
+          : isFavGame
+            ? "border-amber-500/30 bg-amber-950/10 ring-1 ring-amber-500/10"
+            : "border-slate-800 bg-slate-900/60"
       }`}
     >
       {/* Status + Stadium */}
@@ -162,7 +197,11 @@ function GameCard({ game }: { game: Game }) {
       >
         <div className="flex items-center gap-2">
           <TeamLogo name={game.awayTeam} size={22} />
-          <span className="text-sm font-semibold text-slate-200">
+          <span
+            className={`text-sm font-semibold ${
+              game.awayTeam === favTeam ? "text-amber-300" : "text-slate-200"
+            }`}
+          >
             {game.awayTeam}
           </span>
           <span className="text-[10px] text-slate-600">원정</span>
@@ -186,7 +225,11 @@ function GameCard({ game }: { game: Game }) {
       >
         <div className="flex items-center gap-2">
           <TeamLogo name={game.homeTeam} size={22} />
-          <span className="text-sm font-semibold text-slate-200">
+          <span
+            className={`text-sm font-semibold ${
+              game.homeTeam === favTeam ? "text-amber-300" : "text-slate-200"
+            }`}
+          >
             {game.homeTeam}
           </span>
           <span className="text-[10px] text-slate-600">홈</span>
@@ -215,9 +258,11 @@ function GameCard({ game }: { game: Game }) {
 function TodayGamesSection({
   games,
   loading,
+  favTeam,
 }: {
   games: Game[];
   loading: boolean;
+  favTeam?: string | null;
 }) {
   if (loading) {
     return (
@@ -261,7 +306,7 @@ function TodayGamesSection({
       <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
         {games.map((game) => (
           <div key={game.gameId} className="snap-start">
-            <GameCard game={game} />
+            <GameCard game={game} favTeam={favTeam} />
           </div>
         ))}
       </div>
@@ -354,7 +399,13 @@ function cellLabel(state: CellState): string {
 
 // ─── Magic Board ───────────────────────────────────────────────────────────
 
-function MagicBoardTable({ teams }: { teams: TeamWithNumbers[] }) {
+function MagicBoardTable({
+  teams,
+  favTeam,
+}: {
+  teams: TeamWithNumbers[];
+  favTeam?: string | null;
+}) {
   const { teams: sorted, cells } = calcMagicBoard(teams);
   const numPositions = sorted.length - 1;
   const displayK = Array.from(
@@ -424,18 +475,35 @@ function MagicBoardTable({ teams }: { teams: TeamWithNumbers[] }) {
                   ? display[display.length - impossibleCount].k
                   : null;
 
+              const isFav = team.name === favTeam;
               return (
                 <tr
                   key={team.name}
-                  className="border-b border-slate-800/40 last:border-0 hover:bg-slate-800/20 transition-colors"
+                  className={`border-b border-slate-800/40 last:border-0 transition-colors ${
+                    isFav
+                      ? "bg-amber-950/20 hover:bg-amber-950/30"
+                      : "hover:bg-slate-800/20"
+                  }`}
                 >
-                  <td className="px-3 py-2.5 bg-slate-900/50 border-r border-slate-800 whitespace-nowrap">
+                  <td
+                    className={`px-3 py-2.5 bg-slate-900/50 border-r border-slate-800 whitespace-nowrap ${
+                      isFav ? "border-l-2 border-l-amber-500/60" : ""
+                    }`}
+                  >
                     <div className="flex items-center gap-2">
-                      <span className="text-slate-600 text-xs w-4 text-right tabular-nums">
-                        {team.rank}
+                      <span className="w-4 text-right text-xs tabular-nums">
+                        {isFav ? (
+                          <span className="text-amber-400">★</span>
+                        ) : (
+                          <span className="text-slate-600">{team.rank}</span>
+                        )}
                       </span>
                       <TeamLogo name={team.name} size={22} />
-                      <span className="text-sm font-semibold text-slate-100">
+                      <span
+                        className={`text-sm font-semibold ${
+                          isFav ? "text-amber-200" : "text-slate-100"
+                        }`}
+                      >
                         {team.name}
                       </span>
                     </div>
@@ -521,9 +589,13 @@ const PLAYOFF_SPOTS = 5;
 function EnhancedStandings({
   teams,
   form,
+  favTeam,
+  onSetFav,
 }: {
   teams: TeamWithNumbers[];
   form: Record<string, FormEntry[]>;
+  favTeam?: string | null;
+  onSetFav?: (name: string) => void;
 }) {
   const hasForm = Object.keys(form).length > 0;
 
@@ -572,6 +644,7 @@ function EnhancedStandings({
             const streak = calcStreak(teamForm);
             const inPlayoff = idx < PLAYOFF_SPOTS;
 
+            const isFav = team.name === favTeam;
             return (
               <Fragment key={team.name}>
                 {idx === PLAYOFF_SPOTS && (
@@ -588,25 +661,37 @@ function EnhancedStandings({
                   </tr>
                 )}
                 <tr
-                  className={`border-b border-slate-800/40 last:border-0 transition-colors ${
-                    inPlayoff
-                      ? "hover:bg-emerald-950/30"
-                      : "hover:bg-slate-800/20"
+                  onClick={() => onSetFav?.(team.name)}
+                  title={isFav ? "클릭하여 응원팀 해제" : "클릭하여 응원팀 설정"}
+                  className={`border-b border-slate-800/40 last:border-0 transition-colors cursor-pointer ${
+                    isFav
+                      ? "bg-amber-950/20 hover:bg-amber-950/30"
+                      : inPlayoff
+                        ? "hover:bg-emerald-950/30"
+                        : "hover:bg-slate-800/20"
                   }`}
                 >
                   <td
                     className={`text-center px-3 py-2.5 tabular-nums font-bold text-sm ${
-                      inPlayoff ? "text-emerald-400" : "text-slate-500"
+                      isFav
+                        ? "text-amber-400"
+                        : inPlayoff
+                          ? "text-emerald-400"
+                          : "text-slate-500"
                     }`}
                   >
-                    {team.rank}
+                    {isFav ? "★" : team.rank}
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2 whitespace-nowrap">
                       <TeamLogo name={team.name} size={20} />
                       <span
                         className={`font-semibold text-sm ${
-                          inPlayoff ? "text-slate-100" : "text-slate-300"
+                          isFav
+                            ? "text-amber-200"
+                            : inPlayoff
+                              ? "text-slate-100"
+                              : "text-slate-300"
                         }`}
                       >
                         {team.name}
@@ -666,6 +751,7 @@ function EnhancedStandings({
 
 export function StandingsTable() {
   const [date, setDate] = useState("");
+  const [favTeam, toggleFavTeam] = useFavoriteTeam();
 
   useEffect(() => {
     startTransition(() => setDate(todayKST()));
@@ -757,19 +843,34 @@ export function StandingsTable() {
             <TodayGamesSection
               games={gamesData?.games ?? []}
               loading={gamesLoading && !gamesData}
+              favTeam={favTeam}
             />
           )}
 
           {/* 매직 보드 */}
           <section className="space-y-3">
-            <h2 className="text-xl font-bold tracking-tight">매직 넘버</h2>
-            <MagicBoardTable teams={data.teams} />
+            <h2 className="text-xl font-bold tracking-tight">매직 보드</h2>
+            <MagicBoardTable teams={data.teams} favTeam={favTeam} />
           </section>
 
           {/* 순위표 */}
           <section className="space-y-3">
-            <h2 className="text-xl font-bold tracking-tight">순위표</h2>
-            <EnhancedStandings teams={data.teams} form={form} />
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold tracking-tight">순위표</h2>
+              <span className="text-xs">
+                {favTeam ? (
+                  <span className="text-amber-400">★ {favTeam} 응원중</span>
+                ) : (
+                  <span className="text-slate-600">팀 클릭 → 응원팀 설정</span>
+                )}
+              </span>
+            </div>
+            <EnhancedStandings
+              teams={data.teams}
+              form={form}
+              favTeam={favTeam}
+              onSetFav={toggleFavTeam}
+            />
           </section>
         </div>
       ) : null}
