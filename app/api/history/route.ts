@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-import type { TeamWithNumbers } from "@/types";
+import { prisma, fromJson } from "@/lib/prisma";
+import { errResponse } from "@/lib/api";
+import type { KboApiResponse, TeamWithNumbers } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const date = request.nextUrl.searchParams.get("date");
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -26,12 +27,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "데이터 없음" }, { status: 404 });
     }
 
-    return NextResponse.json({
+    const body: KboApiResponse = {
       date: snapshot.date,
-      teams: snapshot.data as unknown as TeamWithNumbers[],
-    });
+      teams: fromJson<TeamWithNumbers[]>(snapshot.data),
+    };
+    return NextResponse.json(body);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errResponse(err);
   }
 }

@@ -13,10 +13,8 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import type { TeamWithNumbers } from "@/types";
-import { calcMagicBoard, type CellState } from "@/lib/calc";
-
-type KboResponse = { date: string; teams: TeamWithNumbers[] };
+import type { KboApiResponse, TeamWithNumbers, CellState } from "@/types";
+import { calcMagicBoard } from "@/lib/calc";
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
 
@@ -50,13 +48,13 @@ class NotFoundError extends Error {
   }
 }
 
-async function fetchLive(): Promise<KboResponse> {
+async function fetchLive(): Promise<KboApiResponse> {
   const res = await fetch("/api/kbo");
   if (!res.ok) throw new Error("순위 데이터를 불러오지 못했습니다.");
   return res.json();
 }
 
-async function fetchHistory(date: string): Promise<KboResponse> {
+async function fetchHistory(date: string): Promise<KboApiResponse> {
   const res = await fetch(`/api/history?date=${date}`);
   if (res.status === 404) throw new NotFoundError();
   if (!res.ok) throw new Error("데이터를 불러오지 못했습니다.");
