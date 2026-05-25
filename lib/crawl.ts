@@ -1,5 +1,5 @@
 import { KBO_SEASON_GAMES } from "@/lib/constants";
-import type { Team, TeamName } from "@/types";
+import type { Team, TeamName, Game } from "@/types";
 
 const VALID_TEAM_NAMES = new Set<string>([
   "KIA", "삼성", "LG", "두산", "KT", "SSG", "롯데", "한화", "NC", "키움",
@@ -74,6 +74,81 @@ export async function crawlStandings(): Promise<Team[]> {
     return teams;
   } catch (err) {
     console.error("[crawlStandings]", err);
+    return [];
+  }
+}
+
+// ─── Game schedule ─────────────────────────────────────────────────────────
+
+const NAVER_SCHEDULE_API =
+  "https://api-gw.sports.naver.com/schedule/categories/kbo";
+
+type NaverScheduleGame = {
+  gameId?: unknown;
+  gameTime?: unknown;
+  homeTeamName?: unknown;
+  awayTeamName?: unknown;
+  homeTeamScore?: unknown;
+  awayTeamScore?: unknown;
+  gameStatusCode?: unknown;
+  stadiumName?: unknown;
+  currentInningString?: unknown;
+};
+
+type NaverScheduleResponse = {
+  result?: { games?: NaverScheduleGame[] };
+};
+
+function parseGameStatus(code: string): Game["status"] {
+  switch (code.toUpperCase()) {
+    case "RESULT":   return "final";
+    case "LIVE":     return "live";
+    case "CANCEL":   return "cancelled";
+    case "POSTPONE": return "postponed";
+    default:         return "scheduled";
+  }
+}
+
+function parseScore(val: unknown): number | null {
+  if (val == null || val === "" || val === "-") return null;
+  const n = Number(val);
+  return isFinite(n) ? n : null;
+}
+
+export async function crawlGames(dateStr: string): Promise<Game[]> {
+  try {
+    const date = dateStr.replace(/-/g, "");
+    const url = `${NAVER_SCHEDULE_API}/games?gameType=REGULAR&date=${date}`;
+
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Referer: "https://sports.naver.com/kbaseball/schedule/index.nhn",
+      },
+      next: { revalidate: 0 },
+    });
+
+    if (!res.ok) throw new Error(`Naver 일정 API 요청 실패: ${res.status}`);
+
+    const json = (await res.json()) as NaverScheduleResponse;
+    const raw = json?.result?.games ?? [];
+
+    return raw
+      .map((g): Game => ({
+        gameId: String(g.gameId ?? Math.random()),
+        homeTeam: String(g.homeTeamName ?? ""),
+        awayTeam: String(g.awayTeamName ?? ""),
+        homeScore: parseScore(g.homeTeamScore),
+        awayScore: parseScore(g.awayTeamScore),
+        status: parseGameStatus(String(g.gameStatusCode ?? "")),
+        time: String(g.gameTime ?? ""),
+        stadium: String(g.stadiumName ?? ""),
+        inning: g.currentInningString ? String(g.currentInningString) : undefined,
+      }))
+      .filter((g) => g.homeTeam !== "" || g.awayTeam !== "");
+  } catch (err) {
+    console.error("[crawlGames]", err);
     return [];
   }
 }
