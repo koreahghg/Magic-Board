@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import {
   Table,
@@ -13,21 +14,34 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import type { TeamWithNumbers } from "@/types";
+import { calcMagicBoard, type CellState } from "@/lib/calc";
 
 type KboResponse = { date: string; teams: TeamWithNumbers[] };
 
-const HEADERS = [
-  "순위", "팀명", "경기수", "승", "패", "무",
-  "승률", "게임차", "잔여경기", "매직넘버", "트래직넘버",
-];
+// ─── Date helpers ──────────────────────────────────────────────────────────
 
-// Intl API는 서버 측에서도 실행 가능하나, hydration mismatch 방지를 위해
-// 클라이언트 mount 후에만 사용한다.
 function todayKST(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(
-    new Date()
-  );
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
 }
+
+function offsetDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function fmtDateDisplay(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T12:00:00");
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(d);
+}
+
+// ─── Fetch helpers ─────────────────────────────────────────────────────────
 
 class NotFoundError extends Error {
   constructor() {
@@ -49,19 +63,7 @@ async function fetchHistory(date: string): Promise<KboResponse> {
   return res.json();
 }
 
-function magicClass(n: number): string {
-  if (n <= 5) return "text-blue-600 font-semibold";
-  if (n <= 10) return "text-blue-500";
-  if (n <= 20) return "text-blue-400";
-  return "text-blue-300";
-}
-
-function tragicClass(n: number): string {
-  if (n <= 5) return "text-red-600 font-semibold";
-  if (n <= 10) return "text-red-500";
-  if (n <= 20) return "text-red-400";
-  return "text-red-300";
-}
+// ─── Format helpers ────────────────────────────────────────────────────────
 
 function fmtWinRate(r: number): string {
   if (!isFinite(r)) return "-";
@@ -72,6 +74,210 @@ function fmtGb(gb: number): string {
   return gb === 0 ? "-" : String(gb);
 }
 
+// ─── Team logo ─────────────────────────────────────────────────────────────
+
+function TeamLogo({ name, size = 24 }: { name: string; size?: number }) {
+  return (
+    <Image
+      src={`/logos/${name}.png`}
+      alt={name}
+      width={size}
+      height={size}
+      className="object-contain"
+    />
+  );
+}
+
+// ─── Magic Board cell styling ──────────────────────────────────────────────
+
+function cellBg(type: CellState["type"]): string {
+  switch (type) {
+    case "confirmed":  return "bg-blue-900";
+    case "magic":      return "bg-green-800";
+    case "contest":    return "bg-yellow-900";
+    case "tragic":     return "bg-red-900";
+    case "impossible": return "bg-red-950";
+  }
+}
+
+function cellLabel(state: CellState): string {
+  if (state.type === "magic" || state.type === "contest" || state.type === "tragic") {
+    return String(state.value);
+  }
+  return "";
+}
+
+function impossibleText(largestK: number): string {
+  if (largestK >= 5) return `포스트시즌 진출 실패\n(${largestK}위 불가)`;
+  return `${largestK}위 불가`;
+}
+
+// ─── Magic Board ───────────────────────────────────────────────────────────
+
+function MagicBoardTable({ teams }: { teams: TeamWithNumbers[] }) {
+  const { teams: sorted, cells } = calcMagicBoard(teams);
+  const numPositions = sorted.length - 1; // 9
+
+  const displayK = Array.from({ length: numPositions }, (_, i) => numPositions - i);
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-x-auto rounded-lg">
+        <table className="text-sm border-collapse w-full">
+          <thead>
+            <tr>
+              <th className="px-4 py-3 text-left text-slate-300 bg-slate-900 border border-slate-700 min-w-20 text-base">
+                구단
+              </th>
+              {displayK.map((k) => (
+                <th
+                  key={k}
+                  className="px-3 py-3 text-center text-slate-300 bg-slate-900 border border-slate-700 min-w-14 font-bold text-base"
+                >
+                  {k}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((team, teamIdx) => {
+              const rowCells = cells[teamIdx];
+              const display = displayK.map((k) => ({ k, state: rowCells[k - 1] }));
+
+              let confirmedCount = 0;
+              while (confirmedCount < display.length && display[confirmedCount].state.type === "confirmed") {
+                confirmedCount++;
+              }
+
+              let impossibleCount = 0;
+              const remaining = display.length - confirmedCount;
+              while (
+                impossibleCount < remaining &&
+                display[display.length - 1 - impossibleCount].state.type === "impossible"
+              ) {
+                impossibleCount++;
+              }
+
+              const middle = display.slice(
+                confirmedCount,
+                impossibleCount > 0 ? display.length - impossibleCount : undefined
+              );
+
+              const confirmedLabel = confirmedCount > 0
+                ? `${display[confirmedCount - 1].k}위 확보`
+                : null;
+
+              const largestImpossibleK = impossibleCount > 0
+                ? display[display.length - impossibleCount].k
+                : null;
+
+              return (
+                <tr key={team.name}>
+                  <td className="px-4 py-3 text-white bg-slate-900 border border-slate-700 font-semibold whitespace-nowrap text-sm">
+                    <div className="flex items-center gap-2">
+                      <TeamLogo name={team.name} size={28} />
+                      {team.name}
+                    </div>
+                  </td>
+
+                  {confirmedCount > 0 && (
+                    <td
+                      colSpan={confirmedCount}
+                      className="px-3 py-3 text-center text-blue-200 bg-blue-900 border border-slate-700 font-semibold text-sm"
+                    >
+                      {confirmedLabel}
+                    </td>
+                  )}
+
+                  {middle.map(({ k, state }) => (
+                    <td
+                      key={k}
+                      className={`px-3 py-3 text-center text-white border border-slate-700/60 tabular-nums font-semibold text-sm ${cellBg(state.type)}`}
+                    >
+                      {cellLabel(state)}
+                    </td>
+                  ))}
+
+                  {impossibleCount > 0 && largestImpossibleK !== null && (
+                    <td
+                      colSpan={impossibleCount}
+                      className="px-3 py-3 text-center text-red-300/70 bg-red-950 border border-slate-700 whitespace-pre-line text-xs leading-snug"
+                    >
+                      {impossibleText(largestImpossibleK)}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 범례 */}
+      <div className="flex items-center gap-5 flex-wrap text-xs">
+        {(
+          [
+            ["bg-blue-900", "확보"],
+            ["bg-green-800", "매직 넘버"],
+            ["bg-yellow-900", "경합"],
+            ["bg-red-900", "트래직 넘버"],
+            ["bg-red-950", "불가"],
+          ] as [string, string][]
+        ).map(([bg, label]) => (
+          <span key={label} className="flex items-center gap-1.5 text-muted-foreground">
+            <span className={`inline-block w-3 h-3 rounded-sm ${bg}`} />
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Standings Table (compact) ─────────────────────────────────────────────
+
+function CompactStandings({ teams }: { teams: TeamWithNumbers[] }) {
+  return (
+    <Table className="text-xs">
+      <TableHeader>
+        <TableRow className="border-slate-700">
+          <TableHead className="text-center w-10 py-2">순위</TableHead>
+          <TableHead className="py-2">팀명</TableHead>
+          <TableHead className="text-center py-2">경기</TableHead>
+          <TableHead className="text-center py-2">승</TableHead>
+          <TableHead className="text-center py-2">패</TableHead>
+          <TableHead className="text-center py-2">무</TableHead>
+          <TableHead className="text-center py-2">승률</TableHead>
+          <TableHead className="text-center py-2">게임차</TableHead>
+          <TableHead className="text-center py-2">잔여</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {teams.map((team) => (
+          <TableRow key={team.name} className="border-slate-700/50">
+            <TableCell className="text-center font-medium py-1.5">{team.rank}</TableCell>
+            <TableCell className="font-medium py-1.5">
+              <div className="flex items-center gap-1.5">
+                <TeamLogo name={team.name} size={20} />
+                {team.name}
+              </div>
+            </TableCell>
+            <TableCell className="text-center tabular-nums py-1.5">{team.games}</TableCell>
+            <TableCell className="text-center tabular-nums py-1.5">{team.wins}</TableCell>
+            <TableCell className="text-center tabular-nums py-1.5">{team.losses}</TableCell>
+            <TableCell className="text-center tabular-nums py-1.5">{team.draws}</TableCell>
+            <TableCell className="text-center tabular-nums py-1.5">{fmtWinRate(team.winRate)}</TableCell>
+            <TableCell className="text-center tabular-nums py-1.5">{fmtGb(team.gamesBehind)}</TableCell>
+            <TableCell className="text-center tabular-nums py-1.5">{team.remainingGames}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────
+
 export function StandingsTable() {
   const [date, setDate] = useState("");
 
@@ -79,7 +285,8 @@ export function StandingsTable() {
     setDate(todayKST());
   }, []);
 
-  const isToday = date !== "" && date === todayKST();
+  const today = todayKST();
+  const isToday = date !== "" && date === today;
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["standings", date],
@@ -93,129 +300,92 @@ export function StandingsTable() {
   const showSkeleton = date === "" || isLoading;
 
   return (
-    <div className="space-y-4">
-      {/* 날짜 선택 */}
-      <div className="flex items-center gap-3">
-        <label htmlFor="date-picker" className="text-sm font-medium">
-          날짜
-        </label>
-        <input
-          id="date-picker"
-          type="date"
-          value={date}
-          max={date !== "" ? todayKST() : undefined}
-          onChange={(e) => setDate(e.target.value)}
-          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-        {isToday && <Badge>실시간</Badge>}
+    <div className="space-y-8">
+      {/* 날짜 네비게이션 */}
+      <div className="flex items-center justify-center gap-4">
+        <button
+          onClick={() => setDate(offsetDate(date, -1))}
+          disabled={date === ""}
+          className="flex items-center justify-center w-9 h-9 rounded-full text-slate-300 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-30 text-xl"
+          aria-label="이전 날짜"
+        >
+          ‹
+        </button>
+
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-semibold tracking-tight min-w-52 text-center">
+            {fmtDateDisplay(date)}
+          </span>
+          {isToday && <Badge variant="secondary">실시간</Badge>}
+        </div>
+
+        <button
+          onClick={() => setDate(offsetDate(date, 1))}
+          disabled={date === "" || isToday}
+          className="flex items-center justify-center w-9 h-9 rounded-full text-slate-300 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-30 text-xl"
+          aria-label="다음 날짜"
+        >
+          ›
+        </button>
       </div>
 
-      {/* 컨텐츠 영역 */}
+      {/* 컨텐츠 */}
       {showSkeleton ? (
-        <StandingsSkeleton />
+        <BoardSkeleton />
       ) : isNotFound ? (
-        <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-slate-700 p-12 text-center text-sm text-muted-foreground">
           해당 날짜 데이터가 없습니다.
         </div>
       ) : isError ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {error instanceof Error ? error.message : "오류가 발생했습니다."}
         </div>
-      ) : (
-        <div className="space-y-2">
+      ) : data?.teams ? (
+        <div className="space-y-8">
           {!isToday && data?.date !== date && (
-            <p className="text-xs text-amber-600">
-              선택한 날짜의 데이터가 없어 가장 가까운{" "}
-              <span className="font-medium">{data?.date}</span> 데이터를 표시합니다.
+            <p className="text-xs text-amber-500 text-center">
+              가장 가까운 <span className="font-medium">{data?.date}</span> 데이터를 표시합니다.
             </p>
           )}
-          <p className="text-xs text-muted-foreground text-right">
-            기준일: {data?.date}
-          </p>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-center w-12">순위</TableHead>
-                <TableHead>팀명</TableHead>
-                <TableHead className="text-center">경기수</TableHead>
-                <TableHead className="text-center">승</TableHead>
-                <TableHead className="text-center">패</TableHead>
-                <TableHead className="text-center">무</TableHead>
-                <TableHead className="text-center">승률</TableHead>
-                <TableHead className="text-center">게임차</TableHead>
-                <TableHead className="text-center">잔여경기</TableHead>
-                <TableHead className="text-center text-blue-500">매직넘버</TableHead>
-                <TableHead className="text-center text-red-500">트래직넘버</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data?.teams.map((team) => (
-                <TableRow key={team.name}>
-                  <TableCell className="text-center font-medium">{team.rank}</TableCell>
-                  <TableCell className="font-medium">{team.name}</TableCell>
-                  <TableCell className="text-center tabular-nums">{team.games}</TableCell>
-                  <TableCell className="text-center tabular-nums">{team.wins}</TableCell>
-                  <TableCell className="text-center tabular-nums">{team.losses}</TableCell>
-                  <TableCell className="text-center tabular-nums">{team.draws}</TableCell>
-                  <TableCell className="text-center tabular-nums">{fmtWinRate(team.winRate)}</TableCell>
-                  <TableCell className="text-center tabular-nums">{fmtGb(team.gamesBehind)}</TableCell>
-                  <TableCell className="text-center tabular-nums">{team.remainingGames}</TableCell>
-                  <TableCell
-                    className={`text-center tabular-nums ${
-                      team.magicNumber !== null
-                        ? magicClass(team.magicNumber)
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {team.magicNumber ?? "-"}
-                  </TableCell>
-                  <TableCell
-                    className={`text-center tabular-nums ${
-                      team.tragicNumber !== null
-                        ? tragicClass(team.tragicNumber)
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {team.tragicNumber ?? "-"}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+
+          {/* 매직 보드 (상단, 크게) */}
+          <section className="space-y-3">
+            <h2 className="text-xl font-bold tracking-tight">매직 보드</h2>
+            <MagicBoardTable teams={data.teams} />
+          </section>
+
+          {/* 순위표 (하단, 작게) */}
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
+              순위표
+            </h2>
+            <div className="w-1/2">
+              <CompactStandings teams={data.teams} />
+            </div>
+          </section>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
-function StandingsSkeleton() {
+// ─── Skeleton ──────────────────────────────────────────────────────────────
+
+function BoardSkeleton() {
   return (
     <div className="space-y-2">
-      <div className="flex justify-end">
-        <Skeleton className="h-3 w-28" />
-      </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {HEADERS.map((h) => (
-              <TableHead key={h} className="text-center">
-                {h}
-              </TableHead>
+      <Skeleton className="h-8 w-48" />
+      <div className="rounded-lg overflow-hidden border border-slate-700">
+        {Array.from({ length: 11 }).map((_, i) => (
+          <div key={i} className="flex border-b border-slate-700/50">
+            {Array.from({ length: 10 }).map((_, j) => (
+              <div key={j} className="flex-1 p-3">
+                <Skeleton className="h-4 w-full" />
+              </div>
             ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Array.from({ length: 10 }).map((_, i) => (
-            <TableRow key={i}>
-              {Array.from({ length: 11 }).map((_, j) => (
-                <TableCell key={j} className="text-center">
-                  <Skeleton className="h-4 w-8 mx-auto" />
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
