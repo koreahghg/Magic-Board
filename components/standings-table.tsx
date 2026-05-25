@@ -75,30 +75,6 @@ async function fetchForm(): Promise<FormResponse> {
   return res.json();
 }
 
-// ─── Favorite team ─────────────────────────────────────────────────────────
-
-const DEFAULT_FAV = "KIA";
-
-function useFavoriteTeam(): [string | null, (name: string) => void] {
-  const [fav, setFavState] = useState<string | null>(null);
-
-  useEffect(() => {
-    startTransition(() => {
-      const stored = localStorage.getItem("kbo-fav-team");
-      setFavState(stored ?? DEFAULT_FAV);
-    });
-  }, []);
-
-  function toggle(name: string) {
-    const next = fav === name ? null : name;
-    setFavState(next);
-    if (next) localStorage.setItem("kbo-fav-team", next);
-    else localStorage.removeItem("kbo-fav-team");
-  }
-
-  return [fav, toggle];
-}
-
 // ─── Format helpers ────────────────────────────────────────────────────────
 
 function fmtWinRate(r: number): string {
@@ -590,12 +566,10 @@ function EnhancedStandings({
   teams,
   form,
   favTeam,
-  onSetFav,
 }: {
   teams: TeamWithNumbers[];
   form: Record<string, FormEntry[]>;
   favTeam?: string | null;
-  onSetFav?: (name: string) => void;
 }) {
   const hasForm = Object.keys(form).length > 0;
 
@@ -661,9 +635,7 @@ function EnhancedStandings({
                   </tr>
                 )}
                 <tr
-                  onClick={() => onSetFav?.(team.name)}
-                  title={isFav ? "클릭하여 응원팀 해제" : "클릭하여 응원팀 설정"}
-                  className={`border-b border-slate-800/40 last:border-0 transition-colors cursor-pointer ${
+                  className={`border-b border-slate-800/40 last:border-0 transition-colors ${
                     isFav
                       ? "bg-amber-950/20 hover:bg-amber-950/30"
                       : inPlayoff
@@ -751,7 +723,7 @@ function EnhancedStandings({
 
 export function StandingsTable() {
   const [date, setDate] = useState("");
-  const [favTeam, toggleFavTeam] = useFavoriteTeam();
+  const favTeam = "KIA";
 
   useEffect(() => {
     startTransition(() => setDate(todayKST()));
@@ -857,19 +829,12 @@ export function StandingsTable() {
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold tracking-tight">순위표</h2>
-              <span className="text-xs">
-                {favTeam ? (
-                  <span className="text-amber-400">★ {favTeam} 응원중</span>
-                ) : (
-                  <span className="text-slate-600">팀 클릭 → 응원팀 설정</span>
-                )}
-              </span>
+              <span className="text-xs text-amber-400">★ {favTeam}</span>
             </div>
             <EnhancedStandings
               teams={data.teams}
               form={form}
               favTeam={favTeam}
-              onSetFav={toggleFavTeam}
             />
           </section>
         </div>
