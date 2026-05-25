@@ -56,3 +56,28 @@ export interface MagicBoard {
   /** cells[teamIdx][posIdx]  posIdx 0 = 1위, posIdx 8 = 9위 */
   cells: CellState[][];
 }
+
+// ─── Games & Form ──────────────────────────────────────────────────────────
+
+export type FormEntry = "W" | "L" | "D";
+
+export interface Game {
+  gameId: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: "scheduled" | "live" | "final" | "cancelled" | "postponed";
+  time: string;
+  stadium: string;
+  inning?: string;
+}
+
+export interface GamesResponse {
+  date: string;
+  games: Game[];
+}
+
+export interface FormResponse {
+  form: Record<string, FormEntry[]>;
+}
